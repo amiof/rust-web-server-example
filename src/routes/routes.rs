@@ -1,0 +1,11 @@
+use crate::routes::auth::auth_routes;
+use crate::routes::user::user_routes;
+use crate::state::app_state::init_state;
+use axum::{routing::get, Router};
+
+pub fn app() -> Router {
+    Router::new()
+        .route("/", get("Hello, world!"))
+        .nest("/user", user_routes(init_state()))
+        .nest("/auth", auth_routes(init_state()))
+}
