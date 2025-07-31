@@ -1,6 +1,7 @@
 use axum::{
     extract::{Path, Query},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     Extension, Json,
 };
 use serde::{Deserialize, Serialize};
@@ -38,4 +39,28 @@ pub async fn user_header(header: HeaderMap) -> String {
 
 pub async fn user_shared_data(Extension(share): Extension<SharedData>) -> String {
     share.message
+}
+
+pub async fn error_status_code() -> Result<(), StatusCode> {
+    Err(StatusCode::UNAUTHORIZED)
+}
+
+pub async fn return_201() -> Response {
+    (StatusCode::CREATED, ("this is a fake create")).into_response()
+}
+
+#[derive(Serialize)]
+pub struct UserData {
+    message: String,
+    id: i32,
+    user_name: String,
+}
+
+pub async fn get_json() -> Response {
+    let data = UserData {
+        message: "user Created ".to_string(),
+        id: 34,
+        user_name: "amiro".to_string(),
+    };
+    (StatusCode::CREATED, Json(data)).into_response()
 }

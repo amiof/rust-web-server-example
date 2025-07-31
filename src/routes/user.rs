@@ -1,4 +1,6 @@
-use crate::handlers::user::{user_header, user_shared_data};
+use crate::handlers::user::{
+    error_status_code, get_json, return_201, user_header, user_shared_data,
+};
 use crate::handlers::{query_path_handel, user_body_json_handler, user_handler, user_path_handle};
 use crate::state::app_state::AppState;
 use axum::Extension;
@@ -26,4 +28,7 @@ pub fn user_routes(state: Arc<AppState>) -> Router {
         .route("/sharedData", get(user_shared_data))
         .with_state(state)
         .layer(Extension(share_data))
+        .route("/error_status_code", get(error_status_code))
+        .route("/return_201", get(return_201))
+        .route("/get_json", get(get_json))
 }
