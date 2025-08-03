@@ -1,9 +1,12 @@
 use axum::{
-    extract::{Path, Query},
-    http::{HeaderMap, StatusCode},
+    extract::{Path, Query, Request},
+    http::{header, HeaderMap, StatusCode},
+    middleware::Next,
     response::{IntoResponse, Response},
     Extension, Json,
 };
+use chrono::Utc;
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
 use crate::routes::user::SharedData;
@@ -63,4 +66,71 @@ pub async fn get_json() -> Response {
         user_name: "amiro".to_string(),
     };
     (StatusCode::CREATED, Json(data)).into_response()
+}
+
+//pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, StatusCode> {
+//    let token = req
+//        .headers()
+//        .get(header::AUTHORIZATION)
+//        .and_then(|auth_header| auth_header.to_str().ok())
+//        .and_then(|auth_value| {
+//            if auth_value.starts_with("Bearer") {
+//                Some(auth_value[7..].to_owned())
+//            } else {
+//                None
+//            }
+//        });
+//    let token = if let Some(token) = token {
+//        token
+//    } else {
+//        return Err(StatusCode::UNAUTHORIZED);
+//    };
+//    let secret_key = "test secret key";
+//    let decoding_key = DecodingKey::from_secret(secret_key.as_ref());
+//    match decode(&token, &decoding_key, &Validation::default()) {
+//        Ok(token_data) => Ok(next.run(req).await),
+//        Err(_) => Err(StatusCode::UNAUTHORIZED),
+//    }
+//}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+struct Claims {
+    sub: String, // Subject (e.g., user ID)
+    exp: usize,  // Expiration time
+    iat: usize,  // Issued at time
+    username: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+struct TokenValue {
+    token: String,
+    token2: String,
+}
+
+pub async fn create_jwt(
+    Path((username, user_id)): Path<(String, String)>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let expiration = Utc::now().timestamp() as usize;
+    let claims = Claims {
+        sub: user_id.to_string(),
+        username: username.to_string(),
+        exp: expiration + 3600,
+        iat: expiration,
+    };
+
+    let secret_key = "rustHello";
+    let key = EncodingKey::from_secret(secret_key.as_ref());
+
+    let token = encode(&Header::default(), &claims, &key);
+    match token {
+        Ok(token_value) => Ok((
+            StatusCode::CREATED,
+            Json(TokenValue {
+                token: token_value.to_string(),
+                token2: token_value.to_string(),
+            }),
+        )
+            .into_response()),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
