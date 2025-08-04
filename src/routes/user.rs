@@ -1,5 +1,6 @@
 use crate::handlers::user::{
-    create_jwt, error_status_code, get_json, return_201, user_header, user_shared_data,
+    auth_middleware, check_auth, create_jwt, error_status_code, get_json, return_201, user_header,
+    user_shared_data,
 };
 use crate::handlers::{query_path_handel, user_body_json_handler, user_handler, user_path_handle};
 use crate::state::app_state::AppState;
@@ -31,6 +32,7 @@ pub fn user_routes(state: Arc<AppState>) -> Router {
         .route("/error_status_code", get(error_status_code))
         .route("/return_201", get(return_201))
         .route("/get_json", get(get_json))
+        .route("/check_auth", get(check_auth))
+        .route_layer(middleware::from_fn(auth_middleware))
         .route("/get_jwt/{username}/{user_id}", get(create_jwt))
-    //.route_layer(middleware::from_fn(auth_middleware))
 }

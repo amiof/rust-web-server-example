@@ -68,37 +68,50 @@ pub async fn get_json() -> Response {
     (StatusCode::CREATED, Json(data)).into_response()
 }
 
-//pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, StatusCode> {
-//    let token = req
-//        .headers()
-//        .get(header::AUTHORIZATION)
-//        .and_then(|auth_header| auth_header.to_str().ok())
-//        .and_then(|auth_value| {
-//            if auth_value.starts_with("Bearer") {
-//                Some(auth_value[7..].to_owned())
-//            } else {
-//                None
-//            }
-//        });
-//    let token = if let Some(token) = token {
-//        token
-//    } else {
-//        return Err(StatusCode::UNAUTHORIZED);
-//    };
-//    let secret_key = "test secret key";
-//    let decoding_key = DecodingKey::from_secret(secret_key.as_ref());
-//    match decode(&token, &decoding_key, &Validation::default()) {
-//        Ok(token_data) => Ok(next.run(req).await),
-//        Err(_) => Err(StatusCode::UNAUTHORIZED),
-//    }
-//}
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct Claims {
+    pub sub: String, // Subject (e.g., user ID)
+    pub exp: usize,  // Expiration time
+    pub iat: usize,  // Issued at time
+    pub username: String,
+}
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
-struct Claims {
-    sub: String, // Subject (e.g., user ID)
-    exp: usize,  // Expiration time
-    iat: usize,  // Issued at time
-    username: String,
+pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, Response> {
+    let token = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|auth_header| auth_header.to_str().ok())
+        .and_then(|auth_value| {
+            if auth_value.starts_with("Bearer") {
+                Some(auth_value[7..].to_owned())
+            } else {
+                None
+            }
+        });
+
+    let token = if let Some(token) = token {
+        dbg!("{ }", &token);
+        token
+    } else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "your auth is not aurhorized".to_string(),
+        )
+            .into_response());
+    };
+    let secret_key = "rustHello";
+    let decoding_key = DecodingKey::from_secret(secret_key.as_ref());
+    match decode::<Claims>(&token, &decoding_key, &Validation::default()) {
+        Ok(token_data) => {
+            req.extensions_mut().insert(token_data.claims);
+            Ok((next.run(req).await).into_response())
+        }
+        Err(_) => Err((
+            StatusCode::UNAUTHORIZED,
+            "your auth is not aurhorized".to_string(),
+        )
+            .into_response()),
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -133,4 +146,10 @@ pub async fn create_jwt(
             .into_response()),
         Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
+}
+
+pub async fn check_auth(claims: axum::extract::Extension<Claims>) -> Json<Claims> {
+    dbg!(&claims.0);
+    //format!("this is a auth data = {}", claims.0.sub)
+    Json(claims.0)
 }
