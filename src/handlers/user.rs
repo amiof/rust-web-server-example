@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use axum::{
-    extract::{Path, Query, Request},
+    extract::{Path, Query, Request, State},
     http::{header, HeaderMap, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
@@ -9,7 +11,7 @@ use chrono::Utc;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
-use crate::routes::user::SharedData;
+use crate::{routes::user::SharedData, state::app_state::AppState};
 
 pub async fn user_handler(body: String) -> String {
     body.to_string()
@@ -152,4 +154,9 @@ pub async fn check_auth(claims: Extension<Claims>) -> Json<Claims> {
     dbg!(&claims.0);
     //format!("this is a auth data = {}", claims.0.sub)
     Json(claims.0)
+}
+
+pub async fn check_database(State(app_state): State<Arc<AppState>>) -> String {
+    app_state.message.clone()
+    //let value = app_state.db_pool.get().await.expect("error");
 }

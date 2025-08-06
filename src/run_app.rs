@@ -5,5 +5,5 @@ pub async fn run() {
         .await
         .unwrap();
 
-    axum::serve(listener, app()).await.unwrap();
+    axum::serve(listener, app().await).await.unwrap();
 }
