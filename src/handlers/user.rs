@@ -148,7 +148,7 @@ pub async fn create_jwt(
     }
 }
 
-pub async fn check_auth(claims: axum::extract::Extension<Claims>) -> Json<Claims> {
+pub async fn check_auth(claims: Extension<Claims>) -> Json<Claims> {
     dbg!(&claims.0);
     //format!("this is a auth data = {}", claims.0.sub)
     Json(claims.0)
