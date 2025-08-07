@@ -16,3 +16,5 @@ dotenvy = "0.15.7"
 diesel = { version = "2.2.12", features = ["postgres", "serde_json","uuid", "chrono"] }
 deadpool-diesel = { version = "0.6.1", features = ["postgres"] }
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
+argon2 = "0.5.3"
+rand = "0.9.2"

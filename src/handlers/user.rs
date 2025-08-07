@@ -1,15 +1,15 @@
 use std::sync::Arc;
 
 use axum::{
+    Extension, Json,
     extract::{Path, Query, Request, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
-    Extension, Json,
 };
 use chrono::Utc;
-use diesel::{PgConnection, RunQueryDsl};
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use diesel::{Insertable, PgConnection, RunQueryDsl};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 use crate::{models::user::Users, routes::user::SharedData, state::app_state::AppState};
@@ -96,11 +96,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, R
         dbg!("{ }", &token);
         token
     } else {
-        return Err((
-            StatusCode::UNAUTHORIZED,
-            "your auth is not aurhorized".to_string(),
-        )
-            .into_response());
+        return Err((StatusCode::UNAUTHORIZED, "your auth is not aurhorized".to_string()).into_response());
     };
     let secret_key = "rustHello";
     let decoding_key = DecodingKey::from_secret(secret_key.as_ref());
@@ -109,11 +105,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Result<Response, R
             req.extensions_mut().insert(token_data.claims);
             Ok((next.run(req).await).into_response())
         }
-        Err(_) => Err((
-            StatusCode::UNAUTHORIZED,
-            "your auth is not aurhorized".to_string(),
-        )
-            .into_response()),
+        Err(_) => Err((StatusCode::UNAUTHORIZED, "your auth is not aurhorized".to_string()).into_response()),
     }
 }
 
@@ -123,9 +115,7 @@ struct TokenValue {
     token2: String,
 }
 
-pub async fn create_jwt(
-    Path((username, user_id)): Path<(String, String)>,
-) -> Result<impl IntoResponse, StatusCode> {
+pub async fn create_jwt(Path((username, user_id)): Path<(String, String)>) -> Result<impl IntoResponse, StatusCode> {
     let expiration = Utc::now().timestamp() as usize;
     let claims = Claims {
         sub: user_id.to_string(),
@@ -183,9 +173,7 @@ fn get_all_posts(conn: &mut PgConnection) -> Result<Vec<Users>, diesel::result::
     users.load::<Users>(conn)
 }
 
-pub async fn check_database(
-    State(app_state): State<Arc<AppState>>,
-) -> Result<Json<Vec<Users>>, AppError> {
+pub async fn check_database(State(app_state): State<Arc<AppState>>) -> Result<Json<Vec<Users>>, AppError> {
     let conn = app_state.db_pool.get().await?;
     let result = conn
         .interact(|raw_conn| get_all_posts(raw_conn))
@@ -193,4 +181,43 @@ pub async fn check_database(
         .expect("errror")
         .expect("error2");
     Ok(Json(result))
+}
+
+//#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Insertable,Debug)]
+#[diesel(table_name = crate::schema::users)]
+pub struct CreateUserFromBody {
+    pub username: String,
+    pub first_name: String,
+    pub last_name: String,
+}
+
+fn create_user(conn: &mut PgConnection, user: &CreateUserFromBody) -> Result<Users, diesel::result::Error> {
+    use crate::schema::users::dsl::*;
+
+    diesel::insert_into(users).values(user).get_result::<Users>(conn)
+}
+
+pub async fn add_user_into_db(
+    State(app_state): State<Arc<AppState>>,
+    Json(body): Json<CreateUserFromBody>,
+) -> Result<Response, StatusCode> {
+
+    let conn = app_state
+        .db_pool
+        .get()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    dbg!("{}", &body);
+
+    let db_result = conn
+        .interact(move |raw_conn| create_user(raw_conn, &body))
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    match db_result {
+        Ok(new_user) => Ok((StatusCode::CREATED, Json(new_user)).into_response()),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
 }
