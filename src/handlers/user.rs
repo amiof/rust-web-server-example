@@ -8,10 +8,11 @@ use axum::{
     Extension, Json,
 };
 use chrono::Utc;
+use diesel::{PgConnection, RunQueryDsl};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
-use crate::{routes::user::SharedData, state::app_state::AppState};
+use crate::{models::user::Users, routes::user::SharedData, state::app_state::AppState};
 
 pub async fn user_handler(body: String) -> String {
     body.to_string()
@@ -156,7 +157,40 @@ pub async fn check_auth(claims: Extension<Claims>) -> Json<Claims> {
     Json(claims.0)
 }
 
-pub async fn check_database(State(app_state): State<Arc<AppState>>) -> String {
-    app_state.message.clone()
-    //let value = app_state.db_pool.get().await.expect("error");
+pub struct AppError(anyhow::Error);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Internal Server Error: {}", self.0),
+        )
+            .into_response()
+    }
+}
+
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
+fn get_all_posts(conn: &mut PgConnection) -> Result<Vec<Users>, diesel::result::Error> {
+    use crate::schema::users::dsl::*;
+    users.load::<Users>(conn)
+}
+
+pub async fn check_database(
+    State(app_state): State<Arc<AppState>>,
+) -> Result<Json<Vec<Users>>, AppError> {
+    let conn = app_state.db_pool.get().await?;
+    let result = conn
+        .interact(|raw_conn| get_all_posts(raw_conn))
+        .await
+        .expect("errror")
+        .expect("error2");
+    Ok(Json(result))
 }
