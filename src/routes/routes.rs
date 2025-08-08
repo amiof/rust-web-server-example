@@ -1,4 +1,5 @@
-use crate::routes::auth::auth_routes;
+use crate::routes::test::test_routes;
+use crate::routes::{auth::auth_routes};
 use crate::routes::user::user_routes;
 use crate::state::app_state::init_state;
 use axum::{http::Method, routing::get, Router};
@@ -13,5 +14,6 @@ pub async fn app() -> Router {
         .route("/", get("Hello, world!"))
         .nest("/user", user_routes(init_state().await))
         .nest("/auth", auth_routes(init_state().await))
+        .nest("/test", test_routes(init_state().await))
         .layer(cors)
 }

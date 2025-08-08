@@ -1,6 +1,6 @@
 use crate::handlers::user::{
-    add_user_into_db, auth_middleware, check_auth, check_database, create_jwt, error_status_code,
-    get_json, return_201, user_header, user_shared_data,
+    add_user_into_db, auth_middleware, check_auth, check_database, create_jwt, error_status_code, get_json, return_201,
+    user_header, user_shared_data,
 };
 use crate::handlers::{query_path_handel, user_body_json_handler, user_handler, user_path_handle};
 use crate::state::app_state::AppState;
